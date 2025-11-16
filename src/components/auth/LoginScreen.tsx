@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export const LoginScreen: React.FC = () => {
   const [handle, setHandle] = useState('');
   const [password, setPassword] = useState('');
+  const [serverUrl, setServerUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login, error, clearError } = useAuth();
 
@@ -19,7 +20,8 @@ export const LoginScreen: React.FC = () => {
     clearError();
 
     try {
-      await login(handle, password);
+      // Pass serverUrl only if it's not empty
+      await login(handle, password, serverUrl || undefined);
     } catch (err) {
       // Error is handled by AuthContext
       console.error('Login failed:', err);
@@ -52,6 +54,9 @@ export const LoginScreen: React.FC = () => {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="user.bsky.social"
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
               />
               <p className="mt-1 text-sm text-gray-500">
                 例: user.bsky.social または your@email.com
@@ -73,6 +78,27 @@ export const LoginScreen: React.FC = () => {
                 placeholder="••••••••"
                 autoComplete="current-password"
               />
+            </div>
+
+            <div>
+              <label htmlFor="serverUrl" className="block text-sm font-medium text-gray-700">
+                サーバーURL（オプション）
+              </label>
+              <input
+                id="serverUrl"
+                name="serverUrl"
+                type="text"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="bsky.social（デフォルト）"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                カスタムPDSサーバーを使用する場合は入力してください。https:// は省略可能です。
+              </p>
             </div>
           </div>
 
