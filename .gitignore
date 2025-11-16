@@ -16,6 +16,7 @@ dist-ssr
 .specify
 .mcp.json
 CLAUDE.md
+specs/
 
 # Editor directories and files
 .vscode/*
