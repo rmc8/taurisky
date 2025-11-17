@@ -11,7 +11,7 @@ import "./App.css";
  * Main app content - shows appropriate screen based on auth state
  */
 function AppContent() {
-  const { isAuthenticated, isLoading, currentUser, logout } = useAuth();
+  const { isAuthenticated, isLoading, currentUser, logout, isSessionExpired, error } = useAuth();
   const { accounts } = useAccounts();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showAccountManagement, setShowAccountManagement] = useState(false);
@@ -23,6 +23,27 @@ function AppContent() {
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Session expired - show re-login prompt
+  if (isSessionExpired && isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center">
+          <div className="text-red-600 text-5xl mb-4">⏱️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">セッションの有効期限切れ</h2>
+          <p className="text-gray-600 mb-6">
+            {error || 'セッションの有効期限が切れました。再度ログインしてください。'}
+          </p>
+          <button
+            onClick={logout}
+            className="w-full px-4 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            再ログイン
+          </button>
         </div>
       </div>
     );

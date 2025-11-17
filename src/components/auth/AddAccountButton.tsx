@@ -6,6 +6,11 @@
 
 import React, { useState } from 'react';
 import { useAccounts } from '../../contexts/AccountsContext';
+import { ErrorDisplay } from './ErrorDisplay';
+
+// Handle validation regex: alphanumeric, dots, and hyphens
+const HANDLE_REGEX = /^[a-zA-Z0-9.-]+$/;
+const HANDLE_MAX_LENGTH = 253;
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -17,12 +22,57 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) =>
   const [password, setPassword] = useState('');
   const [serverUrl, setServerUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const { addAccount, error, clearError } = useAccounts();
+
+  /**
+   * Validate handle format
+   */
+  const validateHandle = (value: string): boolean => {
+    if (!value) {
+      setValidationError('ハンドルを入力してください');
+      return false;
+    }
+
+    if (value.length > HANDLE_MAX_LENGTH) {
+      setValidationError(`ハンドルは${HANDLE_MAX_LENGTH}文字以内で入力してください`);
+      return false;
+    }
+
+    if (!HANDLE_REGEX.test(value)) {
+      setValidationError('ハンドルには英数字、ドット、ハイフンのみ使用できます');
+      return false;
+    }
+
+    setValidationError(null);
+    return true;
+  };
+
+  /**
+   * Handle handle input change with validation
+   */
+  const handleHandleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setHandle(value);
+
+    // Validate on change (non-blocking)
+    if (value) {
+      validateHandle(value);
+    } else {
+      setValidationError(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     clearError();
+
+    // Validate handle before submission
+    if (!validateHandle(handle)) {
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       await addAccount(handle, password, serverUrl || undefined);
@@ -30,6 +80,7 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) =>
       setHandle('');
       setPassword('');
       setServerUrl('');
+      setValidationError(null);
       onClose();
     } catch (err) {
       // Error is handled by AccountsContext
@@ -64,13 +115,20 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) =>
               type="text"
               required
               value={handle}
-              onChange={(e) => setHandle(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              onChange={handleHandleChange}
+              className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 ${
+                validationError
+                  ? 'border-red-300 focus:border-red-500'
+                  : 'border-gray-300 focus:border-blue-500'
+              }`}
               placeholder="user.bsky.social"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck="false"
             />
+            {validationError && (
+              <p className="mt-1 text-sm text-red-600">{validationError}</p>
+            )}
           </div>
 
           <div>
@@ -106,9 +164,11 @@ const AddAccountModal: React.FC<AddAccountModalProps> = ({ isOpen, onClose }) =>
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-              <p className="text-sm">{error}</p>
-            </div>
+            <ErrorDisplay
+              message={error}
+              onClose={clearError}
+              variant="error"
+            />
           )}
 
           <div className="flex space-x-3">

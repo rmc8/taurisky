@@ -5,6 +5,7 @@ mod storage;
 mod commands;
 
 use storage::StorageManager;
+use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -27,7 +28,21 @@ pub fn run() {
             })
             .build(),
         )
-        .manage(StorageManager::new())
+        .setup(|app| {
+            // Get app data directory
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data directory");
+
+            // Create storage manager with data directory
+            let storage = StorageManager::new(data_dir)
+                .expect("Failed to initialize storage manager");
+
+            app.manage(storage);
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::login,

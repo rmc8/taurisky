@@ -1,87 +1,126 @@
 /**
- * Storage module for secure credential management using Tauri Plugin Stronghold
+ * Storage module for secure credential management
  *
- * Stronghold provides encrypted vault storage for sensitive data like authentication tokens
+ * Provides encrypted file-based storage for accounts and authentication tokens
  */
 
+mod crypto;
+mod persistence;
+
 use crate::types::{Account, AuthError, AuthToken};
-use std::collections::HashMap;
+use persistence::{PersistentStorage, StorageData};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 /// Storage manager for authentication data
-/// Uses Stronghold for encrypted token storage
+/// Uses encrypted file-based storage for persistence
 pub struct StorageManager {
-    /// In-memory cache of accounts (non-sensitive data)
-    accounts: Mutex<HashMap<String, Account>>,
-    /// In-memory cache of tokens (temporary, encrypted in Stronghold)
-    tokens: Mutex<HashMap<String, AuthToken>>,
+    /// Persistent storage backend
+    persistence: Mutex<PersistentStorage>,
+    /// In-memory cache (synchronized with disk)
+    cache: Mutex<StorageData>,
 }
 
 impl StorageManager {
     /// Create a new storage manager
-    pub fn new() -> Self {
-        Self {
-            accounts: Mutex::new(HashMap::new()),
-            tokens: Mutex::new(HashMap::new()),
-        }
+    ///
+    /// # Arguments
+    /// * `data_dir` - Directory to store encrypted files
+    pub fn new(data_dir: PathBuf) -> Result<Self, AuthError> {
+        // Use a default password for now
+        // In production, this should be derived from device-specific or user-specific credentials
+        let password = "taurisky_default_password_v1";
+
+        let persistence = PersistentStorage::new(data_dir, password)?;
+
+        // Load existing data or create new
+        let cache = persistence.load()?;
+
+        Ok(Self {
+            persistence: Mutex::new(persistence),
+            cache: Mutex::new(cache),
+        })
     }
 
-    /// Save an authentication token to Stronghold (encrypted)
+    /// Save current cache to disk
+    fn persist(&self) -> Result<(), AuthError> {
+        let cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
+
+        let persistence = self.persistence.lock().map_err(|e| {
+            AuthError::StorageError(format!("Persistence lock error: {}", e))
+        })?;
+
+        persistence.save(&cache)
+    }
+
+    /// Save an authentication token (encrypted and persisted to disk)
     pub async fn save_auth_token(&self, token: &AuthToken) -> Result<(), AuthError> {
-        // TODO: Implement Stronghold persistence
-        // For now, store in memory
-        let mut tokens = self
-            .tokens
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let mut cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        tokens.insert(token.account_id.clone(), token.clone());
-        Ok(())
+        cache.tokens.insert(token.account_id.clone(), token.clone());
+
+        // Release lock before persisting
+        drop(cache);
+
+        // Persist to disk
+        self.persist()
     }
 
-    /// Get an authentication token from Stronghold
+    /// Get an authentication token from storage
     pub async fn get_auth_token(&self, account_id: &str) -> Result<AuthToken, AuthError> {
-        let tokens = self
-            .tokens
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        tokens
+        cache
+            .tokens
             .get(account_id)
             .cloned()
             .ok_or_else(|| AuthError::AccountNotFound(account_id.to_string()))
     }
 
-    /// Delete an authentication token from Stronghold
+    /// Delete an authentication token from storage
     pub async fn delete_auth_token(&self, account_id: &str) -> Result<(), AuthError> {
-        let mut tokens = self
-            .tokens
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let mut cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        tokens.remove(account_id);
-        Ok(())
+        cache.tokens.remove(account_id);
+
+        // Release lock before persisting
+        drop(cache);
+
+        // Persist to disk
+        self.persist()
     }
 
-    /// Save an account (non-sensitive metadata)
+    /// Save an account (persisted to disk)
     pub async fn save_account(&self, account: &Account) -> Result<(), AuthError> {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let mut cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        accounts.insert(account.id.clone(), account.clone());
-        Ok(())
+        cache.accounts.insert(account.id.clone(), account.clone());
+
+        // Release lock before persisting
+        drop(cache);
+
+        // Persist to disk
+        self.persist()
     }
 
     /// Get an account by ID
     pub async fn get_account(&self, account_id: &str) -> Result<Account, AuthError> {
-        let accounts = self
-            .accounts
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        accounts
+        cache
+            .accounts
             .get(account_id)
             .cloned()
             .ok_or_else(|| AuthError::AccountNotFound(account_id.to_string()))
@@ -89,46 +128,46 @@ impl StorageManager {
 
     /// List all accounts
     pub async fn list_accounts(&self) -> Result<Vec<Account>, AuthError> {
-        let accounts = self
-            .accounts
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        Ok(accounts.values().cloned().collect())
+        Ok(cache.accounts.values().cloned().collect())
     }
 
     /// Delete an account
     pub async fn delete_account(&self, account_id: &str) -> Result<(), AuthError> {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let mut cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        accounts.remove(account_id);
-        Ok(())
+        cache.accounts.remove(account_id);
+
+        // Release lock before persisting
+        drop(cache);
+
+        // Persist to disk
+        self.persist()
     }
 
     /// Clear all stored data (for logout all or reset)
     #[allow(dead_code)]
     pub async fn clear_all(&self) -> Result<(), AuthError> {
-        let mut accounts = self
-            .accounts
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        let mut cache = self.cache.lock().map_err(|e| {
+            AuthError::StorageError(format!("Cache lock error: {}", e))
+        })?;
 
-        let mut tokens = self
-            .tokens
-            .lock()
-            .map_err(|e| AuthError::StorageError(format!("Lock error: {}", e)))?;
+        cache.accounts.clear();
+        cache.tokens.clear();
 
-        accounts.clear();
-        tokens.clear();
-        Ok(())
-    }
-}
+        // Release lock before persisting
+        drop(cache);
 
-impl Default for StorageManager {
-    fn default() -> Self {
-        Self::new()
+        // Also clear persistent storage
+        let persistence = self.persistence.lock().map_err(|e| {
+            AuthError::StorageError(format!("Persistence lock error: {}", e))
+        })?;
+
+        persistence.clear()
     }
 }

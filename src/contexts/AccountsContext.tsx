@@ -29,6 +29,9 @@ interface AccountsContextValue {
 
 const AccountsContext = createContext<AccountsContextValue | undefined>(undefined);
 
+// Custom event for account changes
+const ACCOUNTS_CHANGED_EVENT = 'accounts-changed';
+
 export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,10 +53,22 @@ export const AccountsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   /**
-   * Load accounts on mount
+   * Load accounts on mount and when accounts change
    */
   useEffect(() => {
     reloadAccounts();
+
+    // Listen for account changes from other contexts
+    const handleAccountsChanged = () => {
+      console.log('Accounts changed event received - reloading');
+      reloadAccounts();
+    };
+
+    window.addEventListener(ACCOUNTS_CHANGED_EVENT, handleAccountsChanged);
+
+    return () => {
+      window.removeEventListener(ACCOUNTS_CHANGED_EVENT, handleAccountsChanged);
+    };
   }, [reloadAccounts]);
 
   /**
