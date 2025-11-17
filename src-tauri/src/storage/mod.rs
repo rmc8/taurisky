@@ -109,6 +109,7 @@ impl StorageManager {
     }
 
     /// Clear all stored data (for logout all or reset)
+    #[allow(dead_code)]
     pub async fn clear_all(&self) -> Result<(), AuthError> {
         let mut accounts = self
             .accounts

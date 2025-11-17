@@ -58,6 +58,7 @@ pub struct AuthToken {
 }
 
 /// Login credentials input
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct LoginCredentials {
     /// Bluesky handle or email
@@ -143,6 +144,7 @@ pub enum AuthError {
 
 impl AuthError {
     /// Get error type
+    #[allow(dead_code)]
     pub fn error_type(&self) -> AuthErrorType {
         match self {
             AuthError::InvalidCredentials(_) => AuthErrorType::InvalidCredentials,

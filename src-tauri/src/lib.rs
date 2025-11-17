@@ -34,6 +34,9 @@ pub fn run() {
             commands::logout,
             commands::refresh_session,
             commands::restore_sessions,
+            commands::add_account,
+            commands::remove_account,
+            commands::list_accounts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -173,3 +173,132 @@ pub async fn restore_sessions(storage: State<'_, StorageManager>) -> Result<Vec<
         .await
         .map_err(|e| format!("Failed to list accounts: {}", e))
 }
+
+/// Add a new account (similar to login but doesn't set as current)
+///
+/// # Arguments
+/// * `identifier` - User handle or email
+/// * `password` - Account password
+/// * `server_url` - Optional custom PDS server URL
+/// * `storage` - Storage manager state
+///
+/// # Returns
+/// Account object with user information
+#[tauri::command]
+pub async fn add_account(
+    identifier: String,
+    password: String,
+    server_url: Option<String>,
+    storage: State<'_, StorageManager>,
+) -> Result<Account, String> {
+    // Check if account already exists (by handle)
+    let existing_accounts = storage
+        .list_accounts()
+        .await
+        .map_err(|e| format!("Failed to list accounts: {}", e))?;
+
+    // Create AT Protocol client
+    let client = ATProtocolClient::new(server_url.clone())
+        .map_err(|e| format!("Failed to create client: {}", e))?;
+
+    // Attempt to create session with retry logic
+    let session = client
+        .with_retry(|| client.create_session(&identifier, &password))
+        .await
+        .map_err(|e| format!("Login failed: {}", e))?;
+
+    // Check for duplicate handle
+    if existing_accounts
+        .iter()
+        .any(|acc| acc.handle == session.handle)
+    {
+        return Err(format!(
+            "Account with handle '{}' already exists",
+            session.handle
+        ));
+    }
+
+    // Create account object
+    let account_id = Uuid::new_v4().to_string();
+    let now = Utc::now().to_rfc3339();
+
+    let account = Account {
+        id: account_id.clone(),
+        did: session.did.clone(),
+        handle: session.handle.clone(),
+        email: session.email.clone(),
+        display_name: session.display_name.clone(),
+        avatar: session.avatar.clone(),
+        server_url: server_url.unwrap_or_else(|| "https://bsky.social".to_string()),
+        created_at: now.clone(),
+        last_used_at: now.clone(),
+        is_active: true,
+    };
+
+    // Create auth token
+    let auth_token = AuthToken {
+        account_id: account_id.clone(),
+        access_jwt: session.access_jwt,
+        refresh_jwt: session.refresh_jwt,
+        issued_at: now.clone(),
+        access_expires_at: (Utc::now() + chrono::Duration::minutes(90)).to_rfc3339(),
+        refresh_expires_at: (Utc::now() + chrono::Duration::days(60)).to_rfc3339(),
+        session_string: None,
+    };
+
+    // Save account and token
+    storage
+        .save_account(&account)
+        .await
+        .map_err(|e| format!("Failed to save account: {}", e))?;
+
+    storage
+        .save_auth_token(&auth_token)
+        .await
+        .map_err(|e| format!("Failed to save token: {}", e))?;
+
+    Ok(account)
+}
+
+/// Remove an account and its authentication token
+///
+/// # Arguments
+/// * `account_id` - Account ID to remove
+/// * `storage` - Storage manager state
+///
+/// # Note
+/// Column configurations are preserved (as per FR-012a)
+#[tauri::command]
+pub async fn remove_account(
+    account_id: String,
+    storage: State<'_, StorageManager>,
+) -> Result<(), String> {
+    // Delete auth token (secure data)
+    storage
+        .delete_auth_token(&account_id)
+        .await
+        .map_err(|e| format!("Failed to delete token: {}", e))?;
+
+    // Delete account metadata
+    storage
+        .delete_account(&account_id)
+        .await
+        .map_err(|e| format!("Failed to delete account: {}", e))?;
+
+    Ok(())
+}
+
+/// List all saved accounts
+///
+/// # Arguments
+/// * `storage` - Storage manager state
+///
+/// # Returns
+/// List of all accounts
+#[tauri::command]
+pub async fn list_accounts(storage: State<'_, StorageManager>) -> Result<Vec<Account>, String> {
+    storage
+        .list_accounts()
+        .await
+        .map_err(|e| format!("Failed to list accounts: {}", e))
+}
