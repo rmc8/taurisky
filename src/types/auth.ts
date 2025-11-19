@@ -122,18 +122,18 @@ export interface AuthError {
 export interface DeckColumnConfig {
   /** Column unique identifier */
   id: string;
-  /** Account ID to use for this column */
-  accountId: string;
+  /** Account DID to use for this column (did:plc:xxx format) */
+  did: string;
   /** Column type */
   type: ColumnType;
   /** Column title (user customizable) */
   title?: string;
   /** Display position (0-indexed) */
   position: number;
-  /** Column width in pixels (default: 350) */
-  width?: number;
+  /** Column width (default: medium) */
+  width?: ColumnWidth;
   /** Column-specific settings (filters, display options, etc.) */
-  settings?: Record<string, unknown>;
+  settings?: ColumnSettings;
   /** Column creation timestamp */
   createdAt: string;
   /** Last updated timestamp */
@@ -145,9 +145,117 @@ export interface DeckColumnConfig {
  */
 export enum ColumnType {
   Timeline = "timeline",
-  Search = "search",
   Notifications = "notifications",
-  Profile = "profile",
-  List = "list",
-  Feed = "feed",
+}
+
+/**
+ * Column width options (7-stage width settings)
+ */
+export enum ColumnWidth {
+  /** Extra extra small: 280px (suitable for notifications) */
+  Xxs = 'xxs',
+  /** Extra small: 320px (compact display) */
+  Xs = 'xs',
+  /** Small: 350px (narrower than standard) */
+  Small = 'small',
+  /** Medium: 400px (default width) */
+  Medium = 'medium',
+  /** Large: 450px (spacious display) */
+  Large = 'large',
+  /** Extra large: 500px (wide display) */
+  Xl = 'xl',
+  /** Extra extra large: 550px (maximum width, media-focused columns) */
+  Xxl = 'xxl',
+}
+
+/**
+ * Repost display filter (probabilistic filtering)
+ */
+export enum RepostFilter {
+  /** Show all reposts (no filtering) */
+  All = 'all',
+  /** Show ~75% of reposts (hide 1/4) */
+  Many = 'many',
+  /** Show ~50% of reposts (hide 1/2) */
+  Soso = 'soso',
+  /** Show ~25% of reposts (hide 3/4) */
+  Less = 'less',
+  /** Hide all reposts */
+  None = 'none',
+}
+
+/**
+ * Reply display filter
+ */
+export enum ReplyFilter {
+  /** Show all replies */
+  All = 'all',
+  /** Show only replies to following users */
+  Following = 'following',
+  /** Show only replies to me */
+  Me = 'me',
+}
+
+/**
+ * Auto-refresh interval (seconds)
+ */
+export enum AutoRefreshInterval {
+  /** No auto-refresh (manual only) */
+  Off = 0,
+  /** Every 10 seconds */
+  TenSeconds = 10,
+  /** Every 30 seconds */
+  ThirtySeconds = 30,
+  /** Every 60 seconds */
+  OneMinute = 60,
+  /** Every 5 minutes */
+  FiveMinutes = 300,
+  /** Every 10 minutes */
+  TenMinutes = 600,
+  /** Every 30 minutes */
+  ThirtyMinutes = 1800,
+  /** Real-time (WebSocket connection if available) */
+  Realtime = -1,
+}
+
+/**
+ * Timeline filter settings
+ */
+export interface TimelineFilters {
+  /** Repost display control */
+  repostDisplay: RepostFilter;
+  /** Reply display control */
+  replyDisplay: ReplyFilter;
+}
+
+/**
+ * Auto-refresh settings
+ */
+export interface AutoRefreshSettings {
+  /** Refresh interval in seconds */
+  interval: AutoRefreshInterval;
+  /** Scroll to top on refresh */
+  scrollToTop: boolean;
+}
+
+/**
+ * Display customization settings
+ */
+export interface DisplaySettings {
+  /** Show icons */
+  showIcons?: boolean;
+  /** Display media in columns */
+  mediaColumns?: boolean;
+}
+
+/**
+ * Structured column settings
+ */
+export interface ColumnSettings {
+  /** Timeline filter settings */
+  filters?: TimelineFilters;
+  /** Auto-refresh settings */
+  autoRefresh?: AutoRefreshSettings;
+  /** Display customization settings */
+  display?: DisplaySettings;
 }

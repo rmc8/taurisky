@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AccountsProvider, useAccounts } from "./contexts/AccountsContext";
+import { DeckProvider } from "./contexts/DeckContext";
 import { WelcomeScreen } from "./components/auth/WelcomeScreen";
 import { LoginScreen } from "./components/auth/LoginScreen";
 import { AccountList } from "./components/auth/AccountList";
 import { AddAccountButton } from "./components/auth/AddAccountButton";
+import Deck from "./components/deck/Deck";
 import "./App.css";
 
 /**
@@ -57,37 +59,32 @@ function AppContent() {
     return <LoginScreen />;
   }
 
-  // Authenticated - show main app
+  // Authenticated - show main app (deck UI)
 
-  return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">TauriSky</h1>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setShowAccountManagement(!showAccountManagement)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              アカウント管理 ({accounts.length})
-            </button>
-            <span className="text-sm text-gray-600">
-              {currentUser?.displayName || currentUser?.handle}
-            </span>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              ログアウト
-            </button>
+  // Show account management modal if requested
+  if (showAccountManagement) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        {/* Header */}
+        <header className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">TauriSky</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                {currentUser?.displayName || currentUser?.handle}
+              </span>
+              <button
+                onClick={logout}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                ログアウト
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {showAccountManagement ? (
+        {/* Account Management Content */}
+        <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <div className="bg-white shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">
               アカウント管理
@@ -105,45 +102,50 @@ function AppContent() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              ログイン成功！
-            </h2>
-            <div className="space-y-2 text-gray-600">
-              <p>
-                <strong>DID:</strong> {currentUser?.did}
-              </p>
-              <p>
-                <strong>ハンドル:</strong> {currentUser?.handle}
-              </p>
-              <p>
-                <strong>サーバー:</strong> {currentUser?.serverUrl}
-              </p>
-              <p>
-                <strong>登録アカウント数:</strong> {accounts.length}
-              </p>
-            </div>
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                🎉 User Story 1-3 が完了しました！複数アカウントの管理ができるようになりました。
-              </p>
-            </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Show deck UI
+  return (
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Compact Header */}
+      <header className="bg-white shadow-sm z-10">
+        <div className="px-4 py-2 flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-900">TauriSky</h1>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowAccountManagement(true)}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              アカウント管理 ({accounts.length})
+            </button>
+            <span className="text-sm text-gray-600 hidden md:inline">
+              {currentUser?.displayName || currentUser?.handle}
+            </span>
           </div>
-        )}
+        </div>
+      </header>
+
+      {/* Deck UI - full height, no scrolling container */}
+      <main className="flex-1 overflow-hidden">
+        <Deck />
       </main>
     </div>
   );
 }
 
 /**
- * Root App component with AuthProvider and AccountsProvider
+ * Root App component with AuthProvider, AccountsProvider, and DeckProvider
  */
 function App() {
   return (
     <AuthProvider>
       <AccountsProvider>
-        <AppContent />
+        <DeckProvider>
+          <AppContent />
+        </DeckProvider>
       </AccountsProvider>
     </AuthProvider>
   );
