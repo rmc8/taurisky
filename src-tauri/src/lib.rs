@@ -52,6 +52,8 @@ pub fn run() {
             commands::add_account,
             commands::remove_account,
             commands::list_accounts,
+            commands::get_columns,
+            commands::save_columns_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

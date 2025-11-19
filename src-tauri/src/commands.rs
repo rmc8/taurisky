@@ -5,10 +5,11 @@
  */
 
 use crate::auth::ATProtocolClient;
+use crate::storage::columns::{get_default_columns, load_columns, save_columns};
 use crate::storage::StorageManager;
-use crate::types::{Account, AuthToken};
+use crate::types::{Account, AuthToken, DeckColumnConfig};
 use chrono::Utc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
 /// Login to Bluesky with credentials
@@ -301,4 +302,72 @@ pub async fn list_accounts(storage: State<'_, StorageManager>) -> Result<Vec<Acc
         .list_accounts()
         .await
         .map_err(|e| format!("Failed to list accounts: {}", e))
+}
+
+/// Get deck column configurations
+///
+/// # Arguments
+/// * `app` - Tauri app handle
+/// * `storage` - Storage manager state (to get first account for default config)
+///
+/// # Returns
+/// List of column configurations, sorted by position
+/// If no columns exist, returns default configuration (1 timeline column)
+#[tauri::command]
+pub async fn get_columns(
+    app: AppHandle,
+    storage: State<'_, StorageManager>,
+) -> Result<Vec<DeckColumnConfig>, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    let columns = load_columns(&data_dir).unwrap_or_else(|_| vec![]);
+
+    // If no columns exist, create default configuration
+    if columns.is_empty() {
+        // Get first account for default column
+        let accounts = storage
+            .list_accounts()
+            .await
+            .map_err(|e| format!("Failed to list accounts: {}", e))?;
+
+        if let Some(first_account) = accounts.first() {
+            let default_columns = get_default_columns(&first_account.did);
+            // Save default columns for next time
+            let _ = save_columns(&data_dir, default_columns.clone());
+            return Ok(default_columns);
+        }
+
+        // No accounts - return empty (will be handled by frontend)
+        return Ok(vec![]);
+    }
+
+    Ok(columns)
+}
+
+/// Save deck column configurations
+///
+/// # Arguments
+/// * `app` - Tauri app handle
+/// * `columns` - List of column configurations to save
+///
+/// # Returns
+/// Success or error message
+///
+/// # Validation
+/// - At least one column is required (FR-008)
+/// - Timestamps are automatically updated
+#[tauri::command]
+pub async fn save_columns_command(
+    app: AppHandle,
+    columns: Vec<DeckColumnConfig>,
+) -> Result<(), String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+
+    save_columns(&data_dir, columns)
 }

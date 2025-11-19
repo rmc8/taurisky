@@ -4,6 +4,7 @@
  * Provides encrypted file-based storage for accounts and authentication tokens
  */
 
+pub mod columns;
 mod crypto;
 mod persistence;
 
